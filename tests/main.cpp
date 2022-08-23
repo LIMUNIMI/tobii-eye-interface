@@ -14,7 +14,7 @@
 int main() {
 
 int err;
-struct libevdev *dev; 
+struct libevdev *dev;
 struct libevdev_uinput *uidev;
 struct input_absinfo absinfo{
 	.value = 0,
