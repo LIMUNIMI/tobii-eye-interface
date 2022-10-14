@@ -24,16 +24,18 @@
 
 
 #include <chrono>
-#define CLICK_THRESHOLD 0.15f //s
-#define EYE_Y_MOVEMENT_WHEEL_THRESH 0.015f
+#define ONE_EYE_THRESHOLD  0.15f //s
+#define TWO_EYES_THRESHOLD 0.3f //s
+#define SCROLL_THRESHOLD   0.1f //s
+#define EYE_Y_MOVEMENT_THRESH 0.015f
 
 //conferma: chiusura breve occhio sx
 //scorrimento: mantenimento chiusura occhio dx e movinemto alto/basso occhio rimanente
 //nb. stata scelta la x per valore semantico ma anche perchè traccia meglio la y. la x ho notato molto gitter
 //esopanzione: chiusura entrambi gli occhi
 
-void sleep (float seconds){//TODO: da testare
-usleep((10000000 * seconds)UL);
+void sleepSeconds(float seconds){//TODO: da testare
+usleep((1000000 * seconds)); //usleep dorme per mirosecondi
 }
 
 class Timer {
@@ -86,14 +88,14 @@ void gaze_point_callback(tobii_gaze_point_t const *gaze_point, void *user_data) 
         auto y = gaze_point->position_xy[1];
 
         if (mouseWheelMode){//move like a scrollwheel
-            if ( clickY + EYE_Y_MOVEMENT_WHEEL_THRESH < y && rEyeTimer.CheckIfPassed(0.1f)){
+            if ( clickY + EYE_Y_MOVEMENT_THRESH < y && rEyeTimer.CheckIfPassed(SCROLL_THRESHOLD)){
                 libevdev_uinput_write_event(uidev, EV_REL, REL_WHEEL, -1);// move wheel up
-    		sleep(0.1f);//serve a non far scorrere troppo velocemente 	la rotella TODO: tarare
+                sleepSeconds(0.1f);//serve a non far scorrere troppo velocemente 	la rotella TODO: tarare
                 rEyeTimer.Start();
             }
-            else if ( clickY - EYE_Y_MOVEMENT_WHEEL_THRESH > y && rEyeTimer.CheckIfPassed(0.1f)){
+            else if ( clickY - EYE_Y_MOVEMENT_THRESH > y && rEyeTimer.CheckIfPassed(SCROLL_THRESHOLD)){
                 libevdev_uinput_write_event(uidev, EV_REL, REL_WHEEL,  1);// move wheel down
-    		sleep(0.1f);//serve a non far scorrere troppo velocemente 	la rotella TODO: tarare
+                sleepSeconds(0.1f);//serve a non far scorrere troppo velocemente 	la rotella TODO: tarare
                 rEyeTimer.Start();
             }
 
@@ -121,7 +123,7 @@ void gaze_origin_callback( tobii_gaze_origin_t const* gaze_origin, void* user_da
     }else{
 
         if( gaze_origin->left_validity == TOBII_VALIDITY_INVALID ){ //dopo 3 volte (?)
-            if(lEyeTimer.getIsRunning() & lEyeTimer.CheckIfPassed(CLICK_THRESHOLD)){
+            if(lEyeTimer.getIsRunning() & lEyeTimer.CheckIfPassed(ONE_EYE_THRESHOLD)){
                 printf("left click \n");
                 libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   1);
                 libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
@@ -136,7 +138,7 @@ void gaze_origin_callback( tobii_gaze_origin_t const* gaze_origin, void* user_da
         }
 
         //    if( gaze_origin->right_validity == TOBII_VALIDITY_INVALID ){
-        //        if(rEyeTimer.getIsRunning() & rEyeTimer.CheckIfPassed(CLICK_THRESHOLD)){
+        //        if(rEyeTimer.getIsRunning() & rEyeTimer.CheckIfPassed(ONE_EYE_THRESHOLD)){
         //            printf("right click \n");
         //            mouseWheelMode = !mouseWheelMode;
 
@@ -249,7 +251,7 @@ int main() {
     assert(error == TOBII_ERROR_NO_ERROR);
 
 
-    usleep(100000UL);
+    sleepSeconds(1);
     libevdev_uinput_destroy(uidev);
     return 0;
 }
