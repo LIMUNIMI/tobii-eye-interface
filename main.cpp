@@ -1,4 +1,4 @@
-#pragma once
+//#pragma once
 #include <tobii/tobii.h>
 #include <tobii/tobii_streams.h>
 #include <stdio.h>
@@ -22,11 +22,10 @@
 //TODO: refactoring di questo codice in modo che abbia senso, ad es fai una classe eye che contiene un timer, invece di usare isRunnting del timer per capire se l'occhioo è chiuso, rivalutare i timers
 //TODO: mappare chiusura due occhi ad una pressione del tasto centrale mouse
 
-
 #include <chrono>
-#define ONE_EYE_THRESHOLD  0.15f //s
-#define TWO_EYES_THRESHOLD 0.3f //s
-#define SCROLL_THRESHOLD   0.1f //s
+#define ONE_EYE_THRESHOLD  0.15f    //s
+#define TWO_EYES_THRESHOLD 0.3f     //s
+#define SCROLL_THRESHOLD   0.1f     //s
 #define EYE_Y_MOVEMENT_THRESH 0.015f
 
 //conferma: chiusura breve occhio sx
@@ -76,7 +75,7 @@ private:
 
 struct libevdev_uinput *uidev;
 bool mouseWheelMode = false;
-float clickY;//clickY;
+float clickY;
 Timer rEyeTimer = Timer();
 Timer lEyeTimer = Timer();
 
@@ -98,7 +97,6 @@ void gaze_point_callback(tobii_gaze_point_t const *gaze_point, void *user_data) 
                 sleepSeconds(0.1f);//serve a non far scorrere troppo velocemente 	la rotella TODO: tarare
                 rEyeTimer.Start();
             }
-
 
             libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
             if (!rEyeTimer.getIsRunning())
@@ -153,7 +151,6 @@ void gaze_origin_callback( tobii_gaze_origin_t const* gaze_origin, void* user_da
         mouseWheelMode = (gaze_origin->right_validity == TOBII_VALIDITY_INVALID);
     }
 
-
 }
 
 static void url_receiver(char const *url, void *user_data) {
@@ -174,20 +171,20 @@ int main() {
     struct libevdev *dev;
     int err;
     struct input_absinfo absinfoX{
-        .value = 0,
-                .minimum = 0,
-                .maximum = 3100,
-                .fuzz = 50,
-                .flat = 0,
-                .resolution = 1
+        .value = 0,         // latest value
+        .minimum = 0,
+        .maximum = 3100,
+        .fuzz = 10,         // Specifies fuzz value that is used to filter noise from the event stream
+        .flat = 0,          // Values that are within this value will be discarded by joydev interface and reported as 0 instead
+        .resolution = 1     // units/mm
     };
     struct input_absinfo absinfoY{
-        .value = 0,
-                .minimum = 0,
-                .maximum = 1700,
-                .fuzz = 50,
-                .flat = 0,
-                .resolution = 1
+        .value = 0,         // latest value
+        .minimum = 0,
+        .maximum = 1700,
+        .fuzz = 10,         // Specifies fuzz value that is used to filter noise from the event stream
+        .flat = 0,          // Values that are within this value will be discarded by joydev interface and reported as 0 instead
+        .resolution = 1     // units/mm
     };
 
     dev = libevdev_new();
