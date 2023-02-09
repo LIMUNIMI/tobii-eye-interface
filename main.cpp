@@ -24,7 +24,7 @@
 
 #include <chrono>
 //thresholds: time required to pass in order to trigger event
-#define ONE_EYE_THRESHOLD  0.10f    //s
+#define ONE_EYE_THRESHOLD  0.08f    //s
 #define TWO_EYES_THRESHOLD 0.3f     //s
 #define SCROLL_THRESHOLD   0.1f     //s
 #define EYE_Y_MOVEMENT_THRESH 0.015f
@@ -131,18 +131,18 @@ void gaze_origin_callback( tobii_gaze_origin_t const* gaze_origin, void* user_da
     if(gaze_origin->left_validity == TOBII_VALIDITY_INVALID && gaze_origin->right_validity == TOBII_VALIDITY_INVALID)
     {//both eyes closed
         if(bothEyesTimer.getIsRunning() & bothEyesTimer.checkIfPassed(TWO_EYES_THRESHOLD)){
-            printf("double click\n");
-            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   1);
-            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
-            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   0);
-            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+//            printf("double click\n");
+//            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   1);
+//            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+//            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   0);
+//            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
 
-            sleepSeconds(0.05f);
+//            sleepSeconds(0.05f);
 
-            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   1);
-            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
-            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   0);
-            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+//            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   1);
+//            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+//            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   0);
+//            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
 
             bothEyesTimer.stop();
             bothEyesEventHappened = true;
@@ -178,7 +178,6 @@ void gaze_origin_callback( tobii_gaze_origin_t const* gaze_origin, void* user_da
 static void url_receiver(char const *url, void *user_data) {
     char *buffer = (char *) user_data;
     if (*buffer != '\0') return; // only keep first value
-
     if (strlen(url) < 256)
         strcpy(buffer, url);
 }
