@@ -32,6 +32,10 @@
 //nb. stata scelta la x per valore semantico ma anche perchè traccia meglio la y. la x ho notato molto gitter
 //esopanzione: chiusura entrambi gli occhi
 
+void sleep (float seconds){//TODO: da testare
+usleep((10000000 * seconds)UL);
+}
+
 class Timer {
 public:
     Timer(){}
@@ -84,12 +88,12 @@ void gaze_point_callback(tobii_gaze_point_t const *gaze_point, void *user_data) 
         if (mouseWheelMode){//move like a scrollwheel
             if ( clickY + EYE_Y_MOVEMENT_WHEEL_THRESH < y && rEyeTimer.CheckIfPassed(0.1f)){
                 libevdev_uinput_write_event(uidev, EV_REL, REL_WHEEL, -1);// move wheel up
-    		usleep(100000UL);//serve a non far scorrere troppo velocemente 	la rotella TODO: tarare
+    		sleep(0.1f);//serve a non far scorrere troppo velocemente 	la rotella TODO: tarare
                 rEyeTimer.Start();
             }
             else if ( clickY - EYE_Y_MOVEMENT_WHEEL_THRESH > y && rEyeTimer.CheckIfPassed(0.1f)){
                 libevdev_uinput_write_event(uidev, EV_REL, REL_WHEEL,  1);// move wheel down
-    		usleep(100000UL);//serve a non far scorrere troppo velocemente 	la rotella TODO: tarare
+    		sleep(0.1f);//serve a non far scorrere troppo velocemente 	la rotella TODO: tarare
                 rEyeTimer.Start();
             }
 
