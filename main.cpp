@@ -23,7 +23,8 @@
 //TODO: mappare chiusura due occhi ad una pressione del tasto centrale mouse
 
 #include <chrono>
-#define ONE_EYE_THRESHOLD  0.15f    //s
+//thresholds: time required to pass in order to trigger event
+#define ONE_EYE_THRESHOLD  0.10f    //s
 #define TWO_EYES_THRESHOLD 0.3f     //s
 #define SCROLL_THRESHOLD   0.1f     //s
 #define EYE_Y_MOVEMENT_THRESH 0.015f
@@ -42,21 +43,25 @@ public:
     Timer(){}
     ~Timer(){}
 
-    void Start(){
+    void restart(){
         isRunning = true;
-        start = std::chrono::high_resolution_clock::now();
+        startTime = std::chrono::high_resolution_clock::now();
         //printf("timer start\n");
     }
 
-    void Stop(){
+    void start(){
+        if(!isRunning) restart();
+    }
+
+    void stop(){
         isRunning = false;
         //printf("timer stop\n");
     }
 
-    bool CheckIfPassed(float amountS){
+    bool checkIfPassed(float amountS){
         if(isRunning){
             //printf("ciaone %f",(std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - start).count()));
-            return std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - start).count() > amountS;
+            return std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - startTime).count() > amountS;
         }
         else
             return false;
@@ -69,7 +74,7 @@ public:
 
 private:
     bool isRunning = false;
-    std::chrono::time_point<std::chrono::high_resolution_clock> start,end;
+    std::chrono::time_point<std::chrono::high_resolution_clock> startTime;
     std::chrono::duration<float> duration;
 };
 
@@ -78,6 +83,9 @@ bool mouseWheelMode = false;
 float clickY;
 Timer rEyeTimer = Timer();
 Timer lEyeTimer = Timer();
+Timer bothEyesTimer = Timer();
+bool bothEyesEventHappened = false;
+bool leftEyeEventHappened  = false;
 
 void gaze_point_callback(tobii_gaze_point_t const *gaze_point, void *user_data) {
     if (gaze_point->validity == TOBII_VALIDITY_VALID
@@ -87,70 +95,84 @@ void gaze_point_callback(tobii_gaze_point_t const *gaze_point, void *user_data) 
         auto y = gaze_point->position_xy[1];
 
         if (mouseWheelMode){//move like a scrollwheel
-            if ( clickY + EYE_Y_MOVEMENT_THRESH < y && rEyeTimer.CheckIfPassed(SCROLL_THRESHOLD)){
+            if ( clickY + EYE_Y_MOVEMENT_THRESH < y && rEyeTimer.checkIfPassed(SCROLL_THRESHOLD)){
                 libevdev_uinput_write_event(uidev, EV_REL, REL_WHEEL, -1);// move wheel up
                 sleepSeconds(0.1f);//serve a non far scorrere troppo velocemente 	la rotella TODO: tarare
-                rEyeTimer.Start();
+                rEyeTimer.restart();
             }
-            else if ( clickY - EYE_Y_MOVEMENT_THRESH > y && rEyeTimer.CheckIfPassed(SCROLL_THRESHOLD)){
+            else if ( clickY - EYE_Y_MOVEMENT_THRESH > y && rEyeTimer.checkIfPassed(SCROLL_THRESHOLD)){
                 libevdev_uinput_write_event(uidev, EV_REL, REL_WHEEL,  1);// move wheel down
                 sleepSeconds(0.1f);//serve a non far scorrere troppo velocemente 	la rotella TODO: tarare
-                rEyeTimer.Start();
+                rEyeTimer.restart();
             }
 
             libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
             if (!rEyeTimer.getIsRunning())
-                rEyeTimer.Start();
+                rEyeTimer.restart();
         }else {//move pointer
+
             clickY = y;
-            rEyeTimer.Stop();
+            rEyeTimer.stop();
             //printf("moved\n");
             libevdev_uinput_write_event(uidev, EV_ABS, ABS_X, x*3100);
             libevdev_uinput_write_event(uidev, EV_ABS, ABS_Y, y*1700);
             libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
         }
+
+    } else {
+        //printf("gaze point invalid\n");
     }
 }
 
 
 void gaze_origin_callback( tobii_gaze_origin_t const* gaze_origin, void* user_data )
 {
+    //keep in mind: this methot is called continuously. not only if something changes
     if(gaze_origin->left_validity == TOBII_VALIDITY_INVALID && gaze_origin->right_validity == TOBII_VALIDITY_INVALID)
-    {//entambi occhi chiusi
+    {//both eyes closed
+        if(bothEyesTimer.getIsRunning() & bothEyesTimer.checkIfPassed(TWO_EYES_THRESHOLD)){
+            printf("double click\n");
+            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   1);
+            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   0);
+            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+
+            sleepSeconds(0.05f);
+
+            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   1);
+            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+            libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   0);
+            libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+
+            bothEyesTimer.stop();
+            bothEyesEventHappened = true;
+        }
+        if(!bothEyesEventHappened) bothEyesTimer.start();
+        lEyeTimer.stop();
+        rEyeTimer.stop();
+//        leftEyeEventHappened = false;
 
     }else{
+        bothEyesTimer.stop();
+        bothEyesEventHappened = false;
 
-        if( gaze_origin->left_validity == TOBII_VALIDITY_INVALID ){ //dopo 3 volte (?)
-            if(lEyeTimer.getIsRunning() & lEyeTimer.CheckIfPassed(ONE_EYE_THRESHOLD)){
+        if( gaze_origin->left_validity == TOBII_VALIDITY_INVALID ){ //left eye closed
+            if(lEyeTimer.getIsRunning() & lEyeTimer.checkIfPassed(ONE_EYE_THRESHOLD)){
                 printf("left click \n");
                 libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   1);
                 libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
                 libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT,   0);
                 libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
-                lEyeTimer.Stop();
-            }else if(!lEyeTimer.getIsRunning()){
-                lEyeTimer.Start();
+                lEyeTimer.stop();
+                leftEyeEventHappened = true;
             }
+            if(!leftEyeEventHappened) lEyeTimer.start();
         }else{
-            lEyeTimer.Stop();
+            lEyeTimer.stop();
+            leftEyeEventHappened = false;
         }
-
-        //    if( gaze_origin->right_validity == TOBII_VALIDITY_INVALID ){
-        //        if(rEyeTimer.getIsRunning() & rEyeTimer.CheckIfPassed(ONE_EYE_THRESHOLD)){
-        //            printf("right click \n");
-        //            mouseWheelMode = !mouseWheelMode;
-
-        //            rEyeTimer.Stop();
-        //        }else if(!rEyeTimer.getIsRunning()){
-        //            rEyeTimer.Start();
-        //        }
-        //    }else{
-        //        rEyeTimer.Stop();
-        //    }
-
         mouseWheelMode = (gaze_origin->right_validity == TOBII_VALIDITY_INVALID);
     }
-
 }
 
 static void url_receiver(char const *url, void *user_data) {
@@ -225,8 +247,11 @@ int main() {
     assert( error == TOBII_ERROR_NO_ERROR );
 
     printf("tobii tracker configuration complete \n");
-    int is_running = 20000; // in this sample, exit after some iterations
-    while (--is_running > 0) {
+
+    Timer maxTime;
+    maxTime.start();
+
+    while (!maxTime.checkIfPassed(60*40)) {//40m
 
         error = tobii_wait_for_callbacks(1, &device);
         assert(error == TOBII_ERROR_NO_ERROR || error == TOBII_ERROR_TIMED_OUT);
