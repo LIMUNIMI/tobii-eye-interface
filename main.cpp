@@ -9,8 +9,8 @@
 //#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/input.h>
-#include <linux/uinput.h>
+//#include <linux/input.h>
+//#include <linux/uinput.h>
 //#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -20,6 +20,12 @@
 
 #include <chrono>
 #define CLICK_THRESHOLD 1.5f //s
+
+
+//TODO: testare guardare punti overshottando
+//TODO: calibrare eye tracker su win e poi lanciare su linux per vedere se overshotta
+//TODO: caso estremo: fare calibrazione a mano
+
 
 struct libevdev_uinput *uidev;
 
@@ -31,10 +37,12 @@ public:
     void Start(){
         isRunning = true;
         start = std::chrono::high_resolution_clock::now();
+        printf("timer start\n");
     }
 
     void Stop(){
         isRunning = false;
+        printf("timer stop\n");
     }
 
     bool CheckIfPassed(float amountS){
@@ -54,21 +62,30 @@ private:
 };
 
 bool mouseWheelMode = false;
+float oldY;
 
 void gaze_point_callback(tobii_gaze_point_t const *gaze_point, void *user_data) {
     if (gaze_point->validity == TOBII_VALIDITY_VALID) {
-        if (mouseWheelMode){
-            //TODO: ruotare rotella un su o in giù
-        }else{
-            //printf("Gaze point: %f, %f\n", gaze_point->position_xy[0], gaze_point->position_xy[1]);
-            libevdev_uinput_write_event(uidev, EV_ABS, ABS_X, gaze_point->position_xy[0]*3100);
-            libevdev_uinput_write_event(uidev, EV_ABS, ABS_Y, gaze_point->position_xy[1]*1700);
+        auto x = gaze_point->position_xy[0];
+        auto y = gaze_point->position_xy[1];
+
+        if (mouseWheelMode){//move like a scroolwheel
+            if(oldY > y + 0.05f){
+                libevdev_uinput_write_event(uidev, EV_REL, REL_WHEEL,  1);
+            }else if(oldY < y - 0.05f){
+                libevdev_uinput_write_event(uidev, EV_REL, REL_WHEEL, -1);
+            }
+
+            oldY = y;
+        }else{//move pointer
+            libevdev_uinput_write_event(uidev, EV_ABS, ABS_X, x*3100);
+            libevdev_uinput_write_event(uidev, EV_ABS, ABS_Y, y*1700);
             libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
         }
     }
 }
 
-Timer rEyeTimer = Timer();// = std::make_unique<Timer>();
+Timer rEyeTimer = Timer();
 Timer lEyeTimer = Timer();
 
 void gaze_origin_callback( tobii_gaze_origin_t const* gaze_origin, void* user_data )
